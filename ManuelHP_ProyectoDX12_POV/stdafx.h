@@ -104,3 +104,6 @@ ID3D12Resource* indexBuffer; // un default buffer en la memoria de la GPU en el 
 D3D12_VERTEX_BUFFER_VIEW vertexBufferView; // una estructura que contiene un puntero a los datos del vertice en la memoria de la gpu
 											// el tamaño total del bufer y el tamaño de cada elemento (vertice) 
 D3D12_INDEX_BUFFER_VIEW indexBufferView; // una estructura que contiene informacion sobre el buffer de indices
+
+ID3D12Resource* depthStencilBuffer; // Esta es la memoria de nuestro depth buffer. Tambien se usara para el stencil buffer 
+ID3D12DescriptorHeap* dsDescriptorHeap; // Este es un heap para nuestro depth/stencil buffer descriptor

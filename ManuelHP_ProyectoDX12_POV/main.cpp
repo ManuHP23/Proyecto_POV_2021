@@ -467,6 +467,7 @@ bool InitD3D()
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT); // el default rasterizer state.
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // el default blend state.
 	psoDesc.NumRenderTargets = 1; // solo estamos vinculando 1 render target
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT); // el default depth stencil state
 
 	// crear el pso
 	hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
@@ -477,12 +478,19 @@ bool InitD3D()
 
 	// Creamos el vertex buffer
 
-	// el triangulo
+	// el triangle
 	Vertex vList[] = {
-		{ -0.5f,  0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
-		{  0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+		// primer cuadrado (cercano a la camara, azul)
+		{ -0.5f,  0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
 		{ -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
-		{  0.5f,  0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f }
+		{  0.5f,  0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+
+		// segundo cuadrado (lejano a la camara, verde)
+		{ -0.75f,  0.75f,  0.7f, 0.0f, 1.0f, 0.0f, 1.0f },
+		{   0.0f,  0.0f, 0.7f, 0.0f, 1.0f, 0.0f, 1.0f },
+		{ -0.75f,  0.0f, 0.7f, 0.0f, 1.0f, 0.0f, 1.0f },
+		{   0.0f,  0.75f,  0.7f, 0.0f, 1.0f, 0.0f, 1.0f }
 	};
 
 	int vBufferSize = sizeof(vList);
@@ -533,6 +541,7 @@ bool InitD3D()
 
 	// un cuadrado (2 triangulos)
 	DWORD iList[] = {
+		// primer cuadrado (azul)
 		0, 1, 2, // primer triangulo
 		0, 3, 1 // segundo triangulo
 	};
@@ -574,6 +583,41 @@ bool InitD3D()
 
 	// transicion de los datos del vertex buffer desde copy destination state al vertex buffer state
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(indexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+
+	// Creamos el depth/stencil buffer
+
+	// creamos un depth stencil descriptor heap por lo que podemos obtener un puntero al depth stencil buffer
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+	dsvHeapDesc.NumDescriptors = 1;
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	hr = device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsDescriptorHeap));
+	if (FAILED(hr))
+	{
+		Running = false;
+	}
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc = {};
+	depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
+	depthOptimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
+	depthOptimizedClearValue.DepthStencil.Stencil = 0;
+
+	device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, Width, Height, 1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depthOptimizedClearValue,
+		IID_PPV_ARGS(&depthStencilBuffer)
+	);
+	dsDescriptorHeap->SetName(L"Depth/Stencil Resource Heap");
+
+	device->CreateDepthStencilView(depthStencilBuffer, &depthStencilDesc, dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 	// Ahora ejecutamos la command list para cargar los assets iniciales (datos del triangulo)
 	commandList->Close();
@@ -659,12 +703,18 @@ void UpdatePipeline()
 	// aqui obtenemos de nuevo el handle para nuestra render target wiew actual, por lo que podemos establecerlo como el render target en la etapa Output Merger del pipeline
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvDescriptorSize);
 
+	// obtenemos un handle para el depth/stencil buffer
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	
 	//establecemos el render target para la Output Merger stage (el output del pipeline)
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
 	// Clear la render target usando el comando ClearRenderTargetView
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+	// clear el depth/stencil buffer
+	commandList->ClearDepthStencilView(dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	// dibujar un triangulo
 	commandList->SetGraphicsRootSignature(rootSignature); // establecer la root signature
@@ -673,7 +723,8 @@ void UpdatePipeline()
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // establecer la primitive topology
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // establecer el vertex buffer (usando la vertex buffer view)
 	commandList->IASetIndexBuffer(&indexBufferView);
-	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // dibujar 2 triangulos (dibujar 1 instancia de 2 triangulos)
+	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw del primer cuadrado
+	commandList->DrawIndexedInstanced(6, 1, 0, 4, 0); // draw segundo cuadrado
 
 	//transicion del "frameIndex" render target desde el render target state al present state. Si debug layer está activada, 
 	//recibiremos un warning si el present es llamado en el render target cuando no esta en el present state
@@ -692,7 +743,7 @@ void Render()
 
 	UpdatePipeline(); // actualiza el pipeline enviando commands a la commandqueue
 
-					  // creamos un array de command lists (solo una command list aqui)
+	// creamos un array de command lists (solo una command list aqui)
 	ID3D12CommandList* ppCommandLists[] = { commandList };
 
 	// ejecutamos el array de command lists
@@ -746,6 +797,9 @@ void Cleanup()
 	SAFE_RELEASE(rootSignature);
 	SAFE_RELEASE(vertexBuffer);
 	SAFE_RELEASE(indexBuffer);
+
+	SAFE_RELEASE(depthStencilBuffer);
+	SAFE_RELEASE(dsDescriptorHeap);
 }
 
 void WaitForPreviousFrame()
