@@ -10,6 +10,11 @@ struct VS_OUTPUT
     float4 color : COLOR;
 };
 
+cbuffer ConstantBuffer : register(b0)
+{
+    float4 colorMultiplier;
+};
+
 VS_OUTPUT main(VS_INPUT input)
 {
     VS_OUTPUT output;

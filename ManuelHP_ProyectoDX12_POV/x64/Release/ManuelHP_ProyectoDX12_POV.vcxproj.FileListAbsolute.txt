@@ -1,0 +1,2 @@
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Release\PixelShader.cso
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Release\VertexShader.cso

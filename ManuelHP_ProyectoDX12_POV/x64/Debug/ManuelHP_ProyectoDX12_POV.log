@@ -1,4 +1,3 @@
-﻿  main.cpp
-C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(648,19): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
-C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(649,20): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
-  ManuelHP_ProyectoDX12_POV.vcxproj -> C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Debug\ManuelHP_ProyectoDX12_POV.exe
+﻿C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\PixelShader.hlsl(7,30-40): error X4502: invalid vs_2_0 output semantic 'SV_TARGET'
+  
+  compilation failed; no code produced

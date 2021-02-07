@@ -1,7 +1,5 @@
 #include "stdafx.h"
 
-using namespace DirectX; // usaremos directxmath library
-
 struct Vertex {
 	Vertex(float x, float y, float z, float r, float g, float b, float a) : pos(x, y, z), color(r, g, b, z) {}
 	XMFLOAT3 pos;
@@ -354,8 +352,36 @@ bool InitD3D()
 
 	// creamos la root signature
 
+	// creamos un descriptor range (descriptor table) y lo completamos
+	// este es un range de descriptors dentro de un descriptor heap
+	D3D12_DESCRIPTOR_RANGE  descriptorTableRanges[1]; // solo un range
+	descriptorTableRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV; // este es un range de constant buffer views (descriptors)
+	descriptorTableRanges[0].NumDescriptors = 1; // solotenemos un constant buffer, por lo que el range es solo 1
+	descriptorTableRanges[0].BaseShaderRegister = 0; // start index de los shader registers en el range
+	descriptorTableRanges[0].RegisterSpace = 0; // space 0. normalmente es cero
+	descriptorTableRanges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // esto agrega el range al final de las root signature descriptor tables
+
+	// creamos una descriptor table
+	D3D12_ROOT_DESCRIPTOR_TABLE descriptorTable;
+	descriptorTable.NumDescriptorRanges = _countof(descriptorTableRanges); // soo tenemos un range
+	descriptorTable.pDescriptorRanges = &descriptorTableRanges[0]; // el puntero hacia el inicio de nuestro ranges array
+
+	// craeamos un root parameter y lo completamos
+	D3D12_ROOT_PARAMETER  rootParameters[1]; // solo un parametro
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // esto es una descriptor table
+	rootParameters[0].DescriptorTable = descriptorTable; // esta es nuestra descriptor table para este root parameter
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // nuestro pixel shader sera el unico shader que acceda a este parametro por ahora
+
 	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init(_countof(rootParameters), // tenemos un root parameter
+		rootParameters, // un puntero hacia el inicio de nuestro root parameters array
+		0,
+		nullptr,
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | // podemos negar etapas del sombreado para un mejor rendimiento
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS);
 
 	ID3DBlob* signature;
 	hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, nullptr);
@@ -478,19 +504,13 @@ bool InitD3D()
 
 	// Creamos el vertex buffer
 
-	// el triangle
+	// un cuadrado
 	Vertex vList[] = {
 		// primer cuadrado (cercano a la camara, azul)
-		{ -0.5f,  0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
-		{  0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f,  0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{  0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
 		{ -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
-		{  0.5f,  0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
-
-		// segundo cuadrado (lejano a la camara, verde)
-		{ -0.75f,  0.75f,  0.7f, 0.0f, 1.0f, 0.0f, 1.0f },
-		{   0.0f,  0.0f, 0.7f, 0.0f, 1.0f, 0.0f, 1.0f },
-		{ -0.75f,  0.0f, 0.7f, 0.0f, 1.0f, 0.0f, 1.0f },
-		{   0.0f,  0.75f,  0.7f, 0.0f, 1.0f, 0.0f, 1.0f }
+		{  0.5f,  0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f }
 	};
 
 	int vBufferSize = sizeof(vList);
@@ -619,6 +639,52 @@ bool InitD3D()
 
 	device->CreateDepthStencilView(depthStencilBuffer, &depthStencilDesc, dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
+	// Creamos un constant buffer descriptor heap para cada frame
+	// este es el descriptor heap que almacenara nuestro constant buffer descriptor
+	for (int i = 0; i < frameBufferCount; ++i)
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+		heapDesc.NumDescriptors = 1;
+		heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mainDescriptorHeap[i]));
+		if (FAILED(hr))
+		{
+			Running = false;
+		}
+	}
+
+	// creamos el constant buffer resource heap
+	// Actualizaremos el constant buffer una o mas veces por frame, por lo que solo usaremos un upload heap
+	// a diferencia de otras veces usamos un upload heap para cargar los datos de vertices e indices, y luego los copiamos
+	// al default heap. Para usar un resource para mas de dos frames, normalmente es mas
+	// eficiente copiarlos al default heap donde permaneceran en la gpu. En este caso, nuestro constant buffer
+	// sera modificado y actualizado al menos una vez por frame, por lo que solo usamos un upload heap
+
+	// creamos un resource heap, descriptor heap, y un puntero al cbv para cada frame
+	for (int i = 0; i < frameBufferCount; ++i)
+	{
+		hr = device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), //este heap sera usado para cargar el constant buffer data
+			D3D12_HEAP_FLAG_NONE, // sin flags
+			&CD3DX12_RESOURCE_DESC::Buffer(1024 * 64), // tamaño del resource heap. Debe ser un multiplo de 64 KB para texturas simples y buferes constantes 
+			D3D12_RESOURCE_STATE_GENERIC_READ, // seran los datos que se leeran por lo que mantendremos un estado de lectura generico
+			nullptr, // no hemos utilizado un valor optimizado para los constant buffers
+			IID_PPV_ARGS(&constantBufferUploadHeap[i]));
+		constantBufferUploadHeap[i]->SetName(L"Constant Buffer Upload Resource Heap");
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+		cbvDesc.BufferLocation = constantBufferUploadHeap[i]->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = (sizeof(ConstantBuffer) + 255) & ~255;	// Se requiere que el tamaño del constant buffer este alineado con 256 bytes. 
+		device->CreateConstantBufferView(&cbvDesc, mainDescriptorHeap[i]->GetCPUDescriptorHandleForHeapStart());
+
+		ZeroMemory(&cbColorMultiplierData, sizeof(cbColorMultiplierData));
+
+		CD3DX12_RANGE readRange(0, 0);	// No tenemos la intencion de leer este recurso en la CPU.
+		hr = constantBufferUploadHeap[i]->Map(0, &readRange, reinterpret_cast<void**>(&cbColorMultiplierGPUAddress[i]));
+		memcpy(cbColorMultiplierGPUAddress[i], &cbColorMultiplierData, sizeof(cbColorMultiplierData));
+	}
+
 	// Ahora ejecutamos la command list para cargar los assets iniciales (datos del triangulo)
 	commandList->Close();
 	ID3D12CommandList* ppCommandLists[] = { commandList };
@@ -662,6 +728,32 @@ bool InitD3D()
 void Update()
 {
 	// actualizamos la logica del juego, como mover la camara o averiguar que obejtos se incluyen en la vista
+	static float rIncrement = 0.00002f;
+	static float gIncrement = 0.00006f;
+	static float bIncrement = 0.00009f;
+
+	cbColorMultiplierData.colorMultiplier.x += rIncrement;
+	cbColorMultiplierData.colorMultiplier.y += gIncrement;
+	cbColorMultiplierData.colorMultiplier.z += bIncrement;
+
+	if (cbColorMultiplierData.colorMultiplier.x >= 1.0 || cbColorMultiplierData.colorMultiplier.x <= 0.0)
+	{
+		cbColorMultiplierData.colorMultiplier.x = cbColorMultiplierData.colorMultiplier.x >= 1.0 ? 1.0 : 0.0;
+		rIncrement = -rIncrement;
+	}
+	if (cbColorMultiplierData.colorMultiplier.y >= 1.0 || cbColorMultiplierData.colorMultiplier.y <= 0.0)
+	{
+		cbColorMultiplierData.colorMultiplier.y = cbColorMultiplierData.colorMultiplier.y >= 1.0 ? 1.0 : 0.0;
+		gIncrement = -gIncrement;
+	}
+	if (cbColorMultiplierData.colorMultiplier.z >= 1.0 || cbColorMultiplierData.colorMultiplier.z <= 0.0)
+	{
+		cbColorMultiplierData.colorMultiplier.z = cbColorMultiplierData.colorMultiplier.z >= 1.0 ? 1.0 : 0.0;
+		bIncrement = -bIncrement;
+	}
+
+	// copiamos nuestra ConstantBuffer instance al mapped constant buffer resource
+	memcpy(cbColorMultiplierGPUAddress[frameIndex], &cbColorMultiplierData, sizeof(cbColorMultiplierData));
 }
 
 void UpdatePipeline()
@@ -716,15 +808,23 @@ void UpdatePipeline()
 	// clear el depth/stencil buffer
 	commandList->ClearDepthStencilView(dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
+	// establecer la root signature
+	commandList->SetGraphicsRootSignature(rootSignature); // set the root signature
+
+	// establecer el constant buffer descriptor heap
+	ID3D12DescriptorHeap* descriptorHeaps[] = { mainDescriptorHeap[frameIndex] };
+	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+	// establecer la root descriptor table 0 para el constant buffer descriptor heap
+	commandList->SetGraphicsRootDescriptorTable(0, mainDescriptorHeap[frameIndex]->GetGPUDescriptorHandleForHeapStart());
+	
 	// dibujar un triangulo
-	commandList->SetGraphicsRootSignature(rootSignature); // establecer la root signature
 	commandList->RSSetViewports(1, &viewport); // establecer las viewports
 	commandList->RSSetScissorRects(1, &scissorRect); // establecer las scissor rects
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // establecer la primitive topology
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // establecer el vertex buffer (usando la vertex buffer view)
 	commandList->IASetIndexBuffer(&indexBufferView);
 	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw del primer cuadrado
-	commandList->DrawIndexedInstanced(6, 1, 0, 4, 0); // draw segundo cuadrado
 
 	//transicion del "frameIndex" render target desde el render target state al present state. Si debug layer está activada, 
 	//recibiremos un warning si el present es llamado en el render target cuando no esta en el present state
@@ -791,6 +891,9 @@ void Cleanup()
 		SAFE_RELEASE(renderTargets[i]);
 		SAFE_RELEASE(commandAllocator[i]);
 		SAFE_RELEASE(fence[i]);
+
+		SAFE_RELEASE(mainDescriptorHeap[i]);
+		SAFE_RELEASE(constantBufferUploadHeap[i]);
 	};
 
 	SAFE_RELEASE(pipelineStateObject);

@@ -15,6 +15,8 @@
 // solo llamara release si exite un objeto (previene la llamada al release de objetos no existentes)
 #define SAFE_RELEASE(p) { if ( (p) ) { (p)->Release(); (p) = 0; } }
 
+using namespace DirectX; // usaremos la directxmath library
+
 // identificador de la ventana
 HWND hwnd = NULL;
 
@@ -75,8 +77,8 @@ UINT64 fenceValue[frameBufferCount]; // este valor se incrementa cada frame. cad
 int frameIndex; // rtv actual en el que estamos
 
 int rtvDescriptorSize; // tamaño del descritor rtv del dispositivo (todos los front y back buffers seran del mismo tamaño)
-
 					   // declaracion de funciones
+
 bool InitD3D(); // inicializar direct3d 12
 
 void Update(); // actualizar logica del juego
@@ -107,3 +109,16 @@ D3D12_INDEX_BUFFER_VIEW indexBufferView; // una estructura que contiene informac
 
 ID3D12Resource* depthStencilBuffer; // Esta es la memoria de nuestro depth buffer. Tambien se usara para el stencil buffer 
 ID3D12DescriptorHeap* dsDescriptorHeap; // Este es un heap para nuestro depth/stencil buffer descriptor
+
+// esta es la estructura de nuestro constant buffer.
+struct ConstantBuffer {
+	XMFLOAT4 colorMultiplier;
+};
+
+ID3D12DescriptorHeap* mainDescriptorHeap[frameBufferCount]; // este heap almacenara el descripor para nuestro constant buffer
+ID3D12Resource* constantBufferUploadHeap[frameBufferCount]; // memoria de la GPU donde se aloja nuestro constant buffer
+
+ConstantBuffer cbColorMultiplierData; // estos son los datos del constant buffer que enviaremos a la gpu 
+										// (estaran donde el resource anterior)
+
+UINT8* cbColorMultiplierGPUAddress[frameBufferCount]; // este es un puntero a la ubicacion de la memoria que obtenemos cuando mapeamos nuestro constant buffer
