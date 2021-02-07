@@ -479,9 +479,10 @@ bool InitD3D()
 
 	// el triangulo
 	Vertex vList[] = {
-		{ 0.0f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
-		{ 0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+		{ -0.5f,  0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{  0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
 		{ -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f,  0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f }
 	};
 
 	int vBufferSize = sizeof(vList);
@@ -528,6 +529,52 @@ bool InitD3D()
 	// transición de los datos del buffer de vertices desde el copy destination state hasta el vertex buffer state
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(vertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
 
+	// Creamos el index buffer
+
+	// un cuadrado (2 triangulos)
+	DWORD iList[] = {
+		0, 1, 2, // primer triangulo
+		0, 3, 1 // segundo triangulo
+	};
+
+	int iBufferSize = sizeof(iList);
+
+	// creamos el default heap que contiene el index buffer
+	device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), // el default heap
+		D3D12_HEAP_FLAG_NONE, // sin flags
+		&CD3DX12_RESOURCE_DESC::Buffer(iBufferSize), // descripcion de recurso para un buffer
+		D3D12_RESOURCE_STATE_COPY_DEST, // empezar en el copy destination state
+		nullptr, // el valor optimizado debe ser nulo para este tipo de recurso 
+		IID_PPV_ARGS(&indexBuffer));
+
+	// podemos darle a los resource heaps un nombre. Asi cuando utilicemos el debug con el graphics debugger sabremos el recurso que estamos analizando
+	vertexBuffer->SetName(L"Index Buffer Resource Heap");
+
+	// creamos el upload heap para cargar el index buffer
+	ID3D12Resource* iBufferUploadHeap;
+	device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
+		D3D12_HEAP_FLAG_NONE, // sin flags
+		&CD3DX12_RESOURCE_DESC::Buffer(vBufferSize), // descripcion de recurso para un buffer
+		D3D12_RESOURCE_STATE_GENERIC_READ, // la GPU leera desde este buffer y copiara su contenido al default heap
+		nullptr,
+		IID_PPV_ARGS(&iBufferUploadHeap));
+	vBufferUploadHeap->SetName(L"Index Buffer Upload Resource Heap");
+
+	// almacenamiento del vertex buffer en el upload heap
+	D3D12_SUBRESOURCE_DATA indexData = {};
+	indexData.pData = reinterpret_cast<BYTE*>(iList); // puntero al index array
+	indexData.RowPitch = iBufferSize; // tamaño de todo nuestro index buffer
+	indexData.SlicePitch = iBufferSize; // el tamaño de nuestro index buffer
+
+	// ahora creamos un command con la command list para copiar los datos desde el
+	// upload heap al default heap
+	UpdateSubresources(commandList, indexBuffer, iBufferUploadHeap, 0, 0, 1, &indexData);
+
+	// transicion de los datos del vertex buffer desde copy destination state al vertex buffer state
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(indexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+
 	// Ahora ejecutamos la command list para cargar los assets iniciales (datos del triangulo)
 	commandList->Close();
 	ID3D12CommandList* ppCommandLists[] = { commandList };
@@ -541,10 +588,15 @@ bool InitD3D()
 		Running = false;
 	}
 
-	// cramos un vertex buffer view para el triangulo. Obtenemos la direccion de memoria de la GPU al puntero de vertice usando el metodo GetGPUVirtualAddress () 
+	// creamos un vertex buffer view para el triangulo. Obtenemos la direccion de memoria de la GPU al puntero de vertice usando el metodo GetGPUVirtualAddress () 
 	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vertexBufferView.StrideInBytes = sizeof(Vertex);
 	vertexBufferView.SizeInBytes = vBufferSize;
+
+	// creamos un index buffer view para el triangulo. Obtenemos la direccion de memoria de la GPU al puntero de indices usando el metodo GetGPUVirtualAddress () 
+	indexBufferView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+	indexBufferView.Format = DXGI_FORMAT_R32_UINT; // 32-bit unsigned integer (es un dword, double word, una word son 2 bytes)
+	indexBufferView.SizeInBytes = iBufferSize;
 
 	// Completamos la Viewport
 	viewport.TopLeftX = 0;
@@ -620,7 +672,8 @@ void UpdatePipeline()
 	commandList->RSSetScissorRects(1, &scissorRect); // establecer las scissor rects
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // establecer la primitive topology
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // establecer el vertex buffer (usando la vertex buffer view)
-	commandList->DrawInstanced(3, 1, 0, 0); // finalmente dibujar 3 vertices (dibujar un triangulo)
+	commandList->IASetIndexBuffer(&indexBufferView);
+	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // dibujar 2 triangulos (dibujar 1 instancia de 2 triangulos)
 
 	//transicion del "frameIndex" render target desde el render target state al present state. Si debug layer está activada, 
 	//recibiremos un warning si el present es llamado en el render target cuando no esta en el present state
@@ -692,6 +745,7 @@ void Cleanup()
 	SAFE_RELEASE(pipelineStateObject);
 	SAFE_RELEASE(rootSignature);
 	SAFE_RELEASE(vertexBuffer);
+	SAFE_RELEASE(indexBuffer);
 }
 
 void WaitForPreviousFrame()

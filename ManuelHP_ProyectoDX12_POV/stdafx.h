@@ -98,6 +98,9 @@ D3D12_VIEWPORT viewport; // area del render target sobre la que se dibuja la esc
 D3D12_RECT scissorRect; // el area a dibujar. Los pixeles fuera de esa area no se dibujaran
 
 ID3D12Resource* vertexBuffer; // un default buffer en la memoria de la GPU en la que cargaremos los datos de vertices para nuestro triangulo
+ID3D12Resource* indexBuffer; // un default buffer en la memoria de la GPU en el que cargaremos datos de indices para nuestro triangulo 
+
 
 D3D12_VERTEX_BUFFER_VIEW vertexBufferView; // una estructura que contiene un puntero a los datos del vertice en la memoria de la gpu
 											// el tamaño total del bufer y el tamaño de cada elemento (vertice) 
+D3D12_INDEX_BUFFER_VIEW indexBufferView; // una estructura que contiene informacion sobre el buffer de indices
