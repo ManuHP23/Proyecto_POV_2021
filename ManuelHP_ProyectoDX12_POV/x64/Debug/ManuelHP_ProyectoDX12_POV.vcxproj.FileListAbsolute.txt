@@ -1,0 +1,2 @@
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Debug\VertexShader.cso
+C:\Users\Usuario\Desktop\ManuelHP_POV_Proyecto\Proyecto\Finalizado el tut 4\ManuelHP_ProyectoDX12_POV\x64\Debug\VertexShader.cso

@@ -2,17 +2,22 @@
 
 using namespace DirectX; // usaremos directxmath library
 
+struct Vertex {
+	XMFLOAT3 pos;
+};
+
 int WINAPI WinMain(HINSTANCE hInstance,    //Main windows function
 	HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine,
 	int nShowCmd)
 {
+
 	// crear la ventana
 	if (!InitializeWindow(hInstance, nShowCmd, FullScreen))
 	{
 		MessageBox(0, L"Window Initialization - Failed",
 			L"Error", MB_OK);
-		return 0;
+		return 1;
 	}
 
 	// inicializar direct3d
@@ -43,6 +48,7 @@ int WINAPI WinMain(HINSTANCE hInstance,    //Main windows function
 bool InitializeWindow(HINSTANCE hInstance,
 	int ShowWnd,
 	bool fullscreen)
+
 {
 	if (fullscreen)
 	{
@@ -110,7 +116,7 @@ void mainloop() {
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
 
-	while (true)
+	while (Running)
 	{
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
@@ -210,7 +216,7 @@ bool InitD3D()
 		adapter,
 		D3D_FEATURE_LEVEL_11_0,
 		IID_PPV_ARGS(&device)
-	);
+		);
 	if (FAILED(hr))
 	{
 		return false;
@@ -255,7 +261,7 @@ bool InitD3D()
 		commandQueue, // la cola se vaciará una vez que se cree la swapchain.
 		&swapChainDesc, // le damos la descripcion de la swap chain creada antes
 		&tempSwapChain // almacenar la swap chain creada en una interfaz temporal IDXGISwapChain
-	);
+		);
 
 	swapChain = static_cast<IDXGISwapChain3*>(tempSwapChain);
 
@@ -324,9 +330,6 @@ bool InitD3D()
 		return false;
 	}
 
-	// las command lists son creadas en el recording state. Nuestro main loop lo configurara nuevamente por lo que lo cerramos ahora
-	commandList->Close();
-
 	// -- Crear una Fence & Fence Event -- //
 
 	// crear las fences
@@ -346,6 +349,213 @@ bool InitD3D()
 	{
 		return false;
 	}
+
+	// creamos la root signature
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+	rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	ID3DBlob* signature;
+	hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, nullptr);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	hr = device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// creamos el pixel shader y vertex shader
+
+	// cuando activamos el debug, podemos compilar los archivos del shader en tiempo de ejecucion
+	// pero para publicarlo, podemos compilar los hlsl shaders
+	// con fxc.exe para crear los archivos .cso, los cuales contienen el shader
+	// bytecode. Podemos cargar los archivos .cso en tiempo de ejecucion para obtener
+	// el shader bytecode, lo cual es mas rapido que compilarlos en tiempo de ejecucion.
+
+
+	//compilar vertex shader
+	ID3DBlob* vertexShader; // d3d blob que contiene el vertex shader bytecode
+	ID3DBlob* errorBuff; // un buffer que contiene los errores de datos si los hubiera
+	hr = D3DCompileFromFile(L"VertexShader.hlsl",
+		nullptr,
+		nullptr,
+		"main",
+		"vs_5_0",
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+		0,
+		&vertexShader,
+		&errorBuff);
+	if (FAILED(hr))
+	{
+		OutputDebugStringA((char*)errorBuff->GetBufferPointer());
+		return false;
+	}
+
+	//completar una shader bytecode structure, que es básicamente un puntero 
+	//al shader bytecode y al tamaño del shader bytecode 
+	D3D12_SHADER_BYTECODE vertexShaderBytecode = {};
+	vertexShaderBytecode.BytecodeLength = vertexShader->GetBufferSize();
+	vertexShaderBytecode.pShaderBytecode = vertexShader->GetBufferPointer();
+
+	// compilar el pixel shader
+	ID3DBlob* pixelShader;
+	hr = D3DCompileFromFile(L"PixelShader.hlsl",
+		nullptr,
+		nullptr,
+		"main",
+		"ps_5_0",
+		D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+		0,
+		&pixelShader,
+		&errorBuff);
+	if (FAILED(hr))
+	{
+		OutputDebugStringA((char*)errorBuff->GetBufferPointer());
+		return false;
+	}
+
+	// completar el shader bytecode structure para el pixel shader
+	D3D12_SHADER_BYTECODE pixelShaderBytecode = {};
+	pixelShaderBytecode.BytecodeLength = pixelShader->GetBufferSize();
+	pixelShaderBytecode.pShaderBytecode = pixelShader->GetBufferPointer();
+
+	// creamos el input layout
+
+	// El input layout es usado por el Input Assembler quien le dice a este
+	// como leer los datos de vertices vinculados a el
+
+	D3D12_INPUT_ELEMENT_DESC inputLayout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	// completamos la descripcion de estructura del input layout 
+	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc = {};
+
+	// podemos obtener el numero de elementos en un array mediante "sizeof(array) / sizeof(arrayElementType)"
+	inputLayoutDesc.NumElements = sizeof(inputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	inputLayoutDesc.pInputElementDescs = inputLayout;
+
+	// creamos un pipeline state object (PSO)
+
+	// Lo normal es tener muchos PSO para diferentes shaders
+	// o diferentes combinaciones de shaders, diferentes blend states o diferentes rasterizer states,
+	// diferentes tipos de topologia (puntos, lineas, triangulos) o diferente numero
+	// de render targets que necesitaran de un PSO
+
+	// VS es el unico shader necesario para un PSO.
+
+
+
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {}; // una estructura para definir un pso
+	psoDesc.InputLayout = inputLayoutDesc; // la estructura describe nuestra input layout
+	psoDesc.pRootSignature = rootSignature; // la root signature que describe el input data que necesita este PSO
+	psoDesc.VS = vertexShaderBytecode; // la estructura describe donde encontrar el vertex shader bytecode y como de grande es
+	psoDesc.PS = pixelShaderBytecode; // lo mismo que VS but pero para el pixel shader
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // tipo de topologia que estamos dibujando
+	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM; // formato del render target
+	psoDesc.SampleDesc = sampleDesc; // debe ser la misma sample description que la swapchain y el depth/stencil buffer 
+	psoDesc.SampleMask = 0xffffffff; // la sample mask tiene que ver con el multi-sampling. 0xffffffff significa que el muestreo de puntos esta hecho
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT); // el default rasterizer state.
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // el default blend state.
+	psoDesc.NumRenderTargets = 1; // solo estamos vinculando 1 render target
+
+	// crear el pso
+	hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	// Creamos el vertex buffer
+
+	// el triangulo
+	Vertex vList[] = {
+		{ { 0.0f, 0.5f, 0.5f } },
+		{ { 0.5f, -0.5f, 0.5f } },
+		{ { -0.5f, -0.5f, 0.5f } },
+	};
+
+	int vBufferSize = sizeof(vList);
+
+	// creamos el default heap
+	// el default heap es memoria en la GPU. Solo la GPU tiene acceso a esta memoria
+	// Para obtener datos en este heap, tendremos que cargar los datos usando
+	// un upload heap
+	device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), // un default heap
+		D3D12_HEAP_FLAG_NONE, // sin flags
+		&CD3DX12_RESOURCE_DESC::Buffer(vBufferSize), // descripcion del recurso para el buffer
+		D3D12_RESOURCE_STATE_COPY_DEST, // iniciaremos este heap en el estado de destino de la copia ya que copiaremos los datos
+										// desde el upload heap hasta este heap
+		nullptr, // El valor optimizado debe ser nulo para este tipo de recursos usado para render targets y depth/stencil buffers
+		IID_PPV_ARGS(&vertexBuffer));
+
+	// Podemos poner nombre a los resource heaps para que, cuando depuramos con el depurador de gráficos, sepamos que recurso estamos buscando 
+	vertexBuffer->SetName(L"Vertex Buffer Resource Heap");
+
+	// creamos el upload heap
+	// los upload heaps son usados para cargar datos a la GPU. La CPU puede escribir en ella. La GPU puede leer en ella.
+	// Cargaremos el vertex buffer usando este heap para el default heap
+	ID3D12Resource* vBufferUploadHeap;
+	device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // upload heap
+		D3D12_HEAP_FLAG_NONE, // sin flags
+		&CD3DX12_RESOURCE_DESC::Buffer(vBufferSize), // descripcion del recurso para el buffer
+		D3D12_RESOURCE_STATE_GENERIC_READ, // La GPU leera desde este buffer y copiara su contenido al default heap
+		nullptr,
+		IID_PPV_ARGS(&vBufferUploadHeap));
+	vBufferUploadHeap->SetName(L"Vertex Buffer Upload Resource Heap");
+
+	// almacenamiento del vertex buffer en el upload heap
+	D3D12_SUBRESOURCE_DATA vertexData = {};
+	vertexData.pData = reinterpret_cast<BYTE*>(vList); // puntero a nuestro array de vertices
+	vertexData.RowPitch = vBufferSize; // tamaño de todos los datos de vertices del triangulo
+	vertexData.SlicePitch = vBufferSize; // tambien tañamo de los datos de vertices del triangulo
+
+	// ahora estamos creando un comando con la command list para copiar los datos desde
+	// el upload heap hasta el default heap
+	UpdateSubresources(commandList, vertexBuffer, vBufferUploadHeap, 0, 0, 1, &vertexData);
+
+	// transición de los datos del buffer de vertices desde el copy destination state hasta el vertex buffer state
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(vertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+
+	// Ahora ejecutamos la command list para cargar los assets iniciales (datos del triangulo)
+	commandList->Close();
+	ID3D12CommandList* ppCommandLists[] = { commandList };
+	commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+	// ahora incrementamos el fence value, de lo contrario es posible que el bufer no se haya cargado cuando comencemos a dibujar 
+	fenceValue[frameIndex]++;
+	hr = commandQueue->Signal(fence[frameIndex], fenceValue[frameIndex]);
+	if (FAILED(hr))
+	{
+		Running = false;
+	}
+
+	// cramos un vertex buffer view para el triangulo. Obtenemos la direccion de memoria de la GPU al puntero de vertice usando el metodo GetGPUVirtualAddress () 
+	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	vertexBufferView.StrideInBytes = sizeof(Vertex);
+	vertexBufferView.SizeInBytes = vBufferSize;
+
+	// Completamos la Viewport
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = Width;
+	viewport.Height = Height;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+	// Completamos las scissor rect
+	scissorRect.left = 0;
+	scissorRect.top = 0;
+	scissorRect.right = Width;
+	scissorRect.bottom = Height;
 
 	return true;
 }
@@ -371,17 +581,15 @@ void UpdatePipeline()
 	}
 
 	// reset la command list. 
-	
 	//al resetear la lista de comandos, la ponemos en un estado de grabacion por lo que podemos empezar a grabar comandos en el command allocator
 	//El command allocator que hemos referenciado aquí podría tener multiples command lists
 	// asociadas con el, pero solo una puede ser grabada en un tiempo dado.
 	// Hay que asegurarse de que cualquier otra command list asociada a este command allocator este en el closed state, no en el recording.
 	// Aquí pasaremos un PSO inicial como segundo parametro,
 	// pero en este proyecto estamos solo clearing el rtv, aunque realmente no necesitamos mas que
-	// but in this tutorial we are only clearing the rtv, and do not actually need
-	// un initial default pipeline, el cual es obtenemos al poner el segundo parametrop a NULL 
+	// un initial default pipeline, el cual es obtenemos al poner el segundo parametro a NULL 
 
-	hr = commandList->Reset(commandAllocator[frameIndex], NULL);
+	hr = commandList->Reset(commandAllocator[frameIndex], pipelineStateObject);
 	if (FAILED(hr))
 	{
 		Running = false;
@@ -401,6 +609,14 @@ void UpdatePipeline()
 	// Clear la render target usando el comando ClearRenderTargetView
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+	// dibujar un triangulo
+	commandList->SetGraphicsRootSignature(rootSignature); // establecer la root signature
+	commandList->RSSetViewports(1, &viewport); // establecer las viewports
+	commandList->RSSetScissorRects(1, &scissorRect); // establecer las scissor rects
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // establecer la primitive topology
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // establecer el vertex buffer (usando la vertex buffer view)
+	commandList->DrawInstanced(3, 1, 0, 0); // finalmente dibujar 3 vertices (dibujar un triangulo)
 
 	//transicion del "frameIndex" render target desde el render target state al present state. Si debug layer está activada, 
 	//recibiremos un warning si el present es llamado en el render target cuando no esta en el present state
@@ -468,11 +684,18 @@ void Cleanup()
 		SAFE_RELEASE(commandAllocator[i]);
 		SAFE_RELEASE(fence[i]);
 	};
+
+	SAFE_RELEASE(pipelineStateObject);
+	SAFE_RELEASE(rootSignature);
+	SAFE_RELEASE(vertexBuffer);
 }
 
 void WaitForPreviousFrame()
 {
 	HRESULT hr;
+
+	// intercambia el índice de búfer rtv actual para que dibujemos en el búfer correcto
+	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
 	//si el valor de la actual fence es todavia menor que el "fence Value", sabemos que la GPU no ha terminado de ejecutar
 	// la command queue, ya que no ha alcanzado el comando "commandQueue->Signal(fence, fenceValue)"
@@ -492,7 +715,4 @@ void WaitForPreviousFrame()
 
 	// incrementa el fenceValue para el siguiente frame
 	fenceValue[frameIndex]++;
-
-	// intercambia el índice de búfer rtv actual para que dibujemos en el búfer correcto 
-	frameIndex = swapChain->GetCurrentBackBufferIndex();
 }
