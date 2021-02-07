@@ -1,1 +1,5 @@
-﻿  ManuelHP_ProyectoDX12_POV.vcxproj -> C:\Users\Usuario\Desktop\ManuelHP_POV_Proyecto\Proyecto\Finalizado el tut 4\ManuelHP_ProyectoDX12_POV\x64\Debug\ManuelHP_ProyectoDX12_POV.exe
+﻿  compilation object save succeeded; see C:\Users\Usuario\Desktop\ManuelHP_POV_Proyecto\Proyecto\Finalizado el tut 5\ManuelHP_ProyectoDX12_POV\x64\Debug\VertexShader.cso
+  main.cpp
+C:\Users\Usuario\Desktop\ManuelHP_POV_Proyecto\Proyecto\Finalizado el tut 5\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(552,19): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+C:\Users\Usuario\Desktop\ManuelHP_POV_Proyecto\Proyecto\Finalizado el tut 5\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(553,20): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+  ManuelHP_ProyectoDX12_POV.vcxproj -> C:\Users\Usuario\Desktop\ManuelHP_POV_Proyecto\Proyecto\Finalizado el tut 5\ManuelHP_ProyectoDX12_POV\x64\Debug\ManuelHP_ProyectoDX12_POV.exe

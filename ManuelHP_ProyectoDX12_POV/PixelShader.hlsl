@@ -1,5 +1,11 @@
-float4 main() : SV_TARGET
+struct VS_OUTPUT
 {
-	// devuelve color
-	return float4(0.0f, 2.0f, 3.0f, 1.0f);
+    float4 pos : SV_POSITION;
+    float4 color : COLOR;
+};
+
+float4 main(VS_OUTPUT input) : SV_TARGET
+{
+	// devuleve color interpolado
+    return input.color;
 }
