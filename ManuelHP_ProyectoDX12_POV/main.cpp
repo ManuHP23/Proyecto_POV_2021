@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
 struct Vertex {
-	Vertex(float x, float y, float z, float r, float g, float b, float a) : pos(x, y, z), color(r, g, b, z) {}
+	Vertex(float x, float y, float z, float r, float g, float b, float a) : pos(x, y, z), color(r, g, b, a) {}
 	XMFLOAT3 pos;
 	XMFLOAT4 color;
 };
@@ -10,8 +10,8 @@ int WINAPI WinMain(HINSTANCE hInstance,    //Main windows function
 	HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine,
 	int nShowCmd)
-{
 
+{
 	// crear la ventana
 	if (!InitializeWindow(hInstance, nShowCmd, FullScreen))
 	{
@@ -352,24 +352,15 @@ bool InitD3D()
 
 	// creamos la root signature
 
-	// creamos un descriptor range (descriptor table) y lo completamos
-	// este es un range de descriptors dentro de un descriptor heap
-	D3D12_DESCRIPTOR_RANGE  descriptorTableRanges[1]; // solo un range
-	descriptorTableRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV; // este es un range de constant buffer views (descriptors)
-	descriptorTableRanges[0].NumDescriptors = 1; // solotenemos un constant buffer, por lo que el range es solo 1
-	descriptorTableRanges[0].BaseShaderRegister = 0; // start index de los shader registers en el range
-	descriptorTableRanges[0].RegisterSpace = 0; // space 0. normalmente es cero
-	descriptorTableRanges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // esto agrega el range al final de las root signature descriptor tables
-
-	// creamos una descriptor table
-	D3D12_ROOT_DESCRIPTOR_TABLE descriptorTable;
-	descriptorTable.NumDescriptorRanges = _countof(descriptorTableRanges); // soo tenemos un range
-	descriptorTable.pDescriptorRanges = &descriptorTableRanges[0]; // el puntero hacia el inicio de nuestro ranges array
+	// creamos un root descriptor, que explica donde encontrar los datos para este root parameter
+	D3D12_ROOT_DESCRIPTOR rootCBVDescriptor;
+	rootCBVDescriptor.RegisterSpace = 0;
+	rootCBVDescriptor.ShaderRegister = 0;
 
 	// craeamos un root parameter y lo completamos
 	D3D12_ROOT_PARAMETER  rootParameters[1]; // solo un parametro
-	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // esto es una descriptor table
-	rootParameters[0].DescriptorTable = descriptorTable; // esta es nuestra descriptor table para este root parameter
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // esta es una constant buffer view root descriptor
+	rootParameters[0].Descriptor = rootCBVDescriptor; // esta es la root descriptor para este root parameter
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // nuestro pixel shader sera el unico shader que acceda a este parametro por ahora
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
@@ -506,11 +497,41 @@ bool InitD3D()
 
 	// un cuadrado
 	Vertex vList[] = {
-		// primer cuadrado (cercano a la camara, azul)
-		{ -0.5f,  0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
-		{  0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
-		{ -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
-		{  0.5f,  0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f }
+		// cara frontal
+		{ -0.5f,  0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{  0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+
+		// cara lateral derecha
+		{  0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{  0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+
+		// cara lateral izquierda
+		{ -0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+
+		// cara trasera
+		{  0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+
+		// cara superior
+		{ -0.5f,  0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ 0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
+		{ 0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
+
+		// cara inferior
+		{  0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1.0f, 1.0f },
+		{  0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f },
+		{ -0.5f, -0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
 	};
 
 	int vBufferSize = sizeof(vList);
@@ -561,12 +582,34 @@ bool InitD3D()
 
 	// un cuadrado (2 triangulos)
 	DWORD iList[] = {
-		// primer cuadrado (azul)
+		// cara frontal
 		0, 1, 2, // primer triangulo
-		0, 3, 1 // segundo triangulo
+		0, 3, 1, // segundo triangulo
+
+		// lado izq
+		4, 5, 6, // primer triangulo
+		4, 7, 5, // segundo triangulo
+
+		// lado dcho
+		8, 9, 10, // primer triangulo
+		8, 11, 9, // segundo triangulo
+
+		// cara trasera
+		12, 13, 14, // primer triangulo
+		12, 15, 13, // segundo triangulo
+
+		// lado superior
+		16, 17, 18, // primer triangulo
+		16, 19, 17, // segundo triangulo
+
+		// lado inferior
+		20, 21, 22, // primer triangulo
+		20, 23, 21, // segundo triangulo
 	};
 
 	int iBufferSize = sizeof(iList);
+
+	numCubeIndices = sizeof(iList) / sizeof(DWORD);
 
 	// creamos el default heap que contiene el index buffer
 	device->CreateCommittedResource(
@@ -634,25 +677,10 @@ bool InitD3D()
 		D3D12_RESOURCE_STATE_DEPTH_WRITE,
 		&depthOptimizedClearValue,
 		IID_PPV_ARGS(&depthStencilBuffer)
-	);
+		);
 	dsDescriptorHeap->SetName(L"Depth/Stencil Resource Heap");
 
 	device->CreateDepthStencilView(depthStencilBuffer, &depthStencilDesc, dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
-	// Creamos un constant buffer descriptor heap para cada frame
-	// este es el descriptor heap que almacenara nuestro constant buffer descriptor
-	for (int i = 0; i < frameBufferCount; ++i)
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-		heapDesc.NumDescriptors = 1;
-		heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mainDescriptorHeap[i]));
-		if (FAILED(hr))
-		{
-			Running = false;
-		}
-	}
 
 	// creamos el constant buffer resource heap
 	// Actualizaremos el constant buffer una o mas veces por frame, por lo que solo usaremos un upload heap
@@ -661,28 +689,36 @@ bool InitD3D()
 	// eficiente copiarlos al default heap donde permaneceran en la gpu. En este caso, nuestro constant buffer
 	// sera modificado y actualizado al menos una vez por frame, por lo que solo usamos un upload heap
 
-	// creamos un resource heap, descriptor heap, y un puntero al cbv para cada frame
+	// primero crearemos un resource heap (upload heap) para cada frame para los buferes de constantes de cubos
+	// Estamos asignando 64 KB para cada recurso que creamos. Los buffer resource heaps deben tener
+	// una alineación de 64 KB. Estamos creando 3 recursos, uno para cada frame. Cada bufder de constantes es
+	// una matriz de 4x4 float. Entonces, con un float de 4 bytes, tenemos
+	// 16 float en un buffer de constantes, y almacenaremos 2 buferes de constantes en cada
+	// heap, uno para cada cubo, eso es solo 64x2 bits, o 128 bits que estamos usando para cada
+	// recurso, y cada recurso debe tener al menos 64 KB (65536 bits) 
 	for (int i = 0; i < frameBufferCount; ++i)
 	{
+		// creamos el resource para el cube 1
 		hr = device->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), //este heap sera usado para cargar el constant buffer data
 			D3D12_HEAP_FLAG_NONE, // sin flags
 			&CD3DX12_RESOURCE_DESC::Buffer(1024 * 64), // tamaño del resource heap. Debe ser un multiplo de 64 KB para texturas simples y buferes constantes 
 			D3D12_RESOURCE_STATE_GENERIC_READ, // seran los datos que se leeran por lo que mantendremos un estado de lectura generico
 			nullptr, // no hemos utilizado un valor optimizado para los constant buffers
-			IID_PPV_ARGS(&constantBufferUploadHeap[i]));
-		constantBufferUploadHeap[i]->SetName(L"Constant Buffer Upload Resource Heap");
+			IID_PPV_ARGS(&constantBufferUploadHeaps[i]));
+		constantBufferUploadHeaps[i]->SetName(L"Constant Buffer Upload Resource Heap");
 
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-		cbvDesc.BufferLocation = constantBufferUploadHeap[i]->GetGPUVirtualAddress();
-		cbvDesc.SizeInBytes = (sizeof(ConstantBuffer) + 255) & ~255;	// Se requiere que el tamaño del constant buffer este alineado con 256 bytes. 
-		device->CreateConstantBufferView(&cbvDesc, mainDescriptorHeap[i]->GetCPUDescriptorHandleForHeapStart());
-
-		ZeroMemory(&cbColorMultiplierData, sizeof(cbColorMultiplierData));
+		ZeroMemory(&cbPerObject, sizeof(cbPerObject));
 
 		CD3DX12_RANGE readRange(0, 0);	// No tenemos la intencion de leer este recurso en la CPU.
-		hr = constantBufferUploadHeap[i]->Map(0, &readRange, reinterpret_cast<void**>(&cbColorMultiplierGPUAddress[i]));
-		memcpy(cbColorMultiplierGPUAddress[i], &cbColorMultiplierData, sizeof(cbColorMultiplierData));
+		
+		// mapear el resource heap para obtener la gpu virtual address al inicio del heap
+		hr = constantBufferUploadHeaps[i]->Map(0, &readRange, reinterpret_cast<void**>(&cbvGPUAddress[i]));
+
+		// Debido a los requerimientos del constant read alignment, las constant buffer views deben estar alienadas a 256 bit. Nuestros buffers son mas pequeños que 256 bits,
+		// por lo que necesitamos añadir espacio entre los dos buffers, por ello el segundo buffer empieza a 256 bits desde el inicio del resource heap.
+		memcpy(cbvGPUAddress[i], &cbPerObject, sizeof(cbPerObject)); // constant buffer data del cubo 1
+		memcpy(cbvGPUAddress[i] + ConstantBufferPerObjectAlignedSize, &cbPerObject, sizeof(cbPerObject)); // onstant buffer data del cubo 2
 	}
 
 	// Ahora ejecutamos la command list para cargar los assets iniciales (datos del triangulo)
@@ -722,38 +758,108 @@ bool InitD3D()
 	scissorRect.right = Width;
 	scissorRect.bottom = Height;
 
+	// construimos la matriz de vista y proyeccion
+	XMMATRIX tmpMat = XMMatrixPerspectiveFovLH(45.0f * (3.14f / 180.0f), (float)Width / (float)Height, 0.1f, 1000.0f);
+	XMStoreFloat4x4(&cameraProjMat, tmpMat);
+
+	// establecemos el estado inicial de la camara
+	cameraPosition = XMFLOAT4(0.0f, 2.0f, -4.0f, 0.0f);
+	cameraTarget = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
+	cameraUp = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+
+	// construimos la matriz de la vista
+	XMVECTOR cPos = XMLoadFloat4(&cameraPosition);
+	XMVECTOR cTarg = XMLoadFloat4(&cameraTarget);
+	XMVECTOR cUp = XMLoadFloat4(&cameraUp);
+	tmpMat = XMMatrixLookAtLH(cPos, cTarg, cUp);
+	XMStoreFloat4x4(&cameraViewMat, tmpMat);
+
+	// establcemos la posicion inicial de los cubos
+	// primer cubo
+	cube1Position = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f); // establecer la posicion del cubo 1
+	XMVECTOR posVec = XMLoadFloat4(&cube1Position); // crear el xmvector para la posicion del cubo 1
+
+	tmpMat = XMMatrixTranslationFromVector(posVec); // crear una matriz de traslacion a partir del vector de posicion del cubo 1 
+	XMStoreFloat4x4(&cube1RotMat, XMMatrixIdentity()); // iniciar la matriz de rotacion del cubo 1 a la matriz de identidad 
+	XMStoreFloat4x4(&cube1WorldMat, tmpMat); // almacenar la matriz del mundo del cubo 1
+
+	// segundo cubo
+	cube2PositionOffset = XMFLOAT4(1.5f, 0.0f, 0.0f, 0.0f);
+	posVec = XMLoadFloat4(&cube2PositionOffset) + XMLoadFloat4(&cube1Position); // crear el xmvector para la posicion del cubo 2
+																				// esta rotando alrededor del cubo 1, por lo que añadimos la posicion del cubo 2 al 1
+
+	tmpMat = XMMatrixTranslationFromVector(posVec); // creamos una matriz de traduccion a partir del vector de posicion desplazado del cubo 2 
+	XMStoreFloat4x4(&cube2RotMat, XMMatrixIdentity()); // iniciar la matriz de rotacion del cubo 2 a la matriz de identidad
+	XMStoreFloat4x4(&cube2WorldMat, tmpMat); // almacenar la matriz del mundo del cubo 2
+
 	return true;
 }
 
 void Update()
 {
 	// actualizamos la logica del juego, como mover la camara o averiguar que obejtos se incluyen en la vista
-	static float rIncrement = 0.00002f;
-	static float gIncrement = 0.00006f;
-	static float bIncrement = 0.00009f;
+	
+	// creamos las matrices de rotacion para el cubo 1
+	XMMATRIX rotXMat = XMMatrixRotationX(0.0001f);
+	XMMATRIX rotYMat = XMMatrixRotationY(0.0002f);
+	XMMATRIX rotZMat = XMMatrixRotationZ(0.0003f);
 
-	cbColorMultiplierData.colorMultiplier.x += rIncrement;
-	cbColorMultiplierData.colorMultiplier.y += gIncrement;
-	cbColorMultiplierData.colorMultiplier.z += bIncrement;
+	// añadimos rotacion a la matriz de rotacion del cubo 1 y la almacenamos
+	XMMATRIX rotMat = XMLoadFloat4x4(&cube1RotMat) * rotXMat * rotYMat * rotZMat;
+	XMStoreFloat4x4(&cube1RotMat, rotMat);
 
-	if (cbColorMultiplierData.colorMultiplier.x >= 1.0 || cbColorMultiplierData.colorMultiplier.x <= 0.0)
-	{
-		cbColorMultiplierData.colorMultiplier.x = cbColorMultiplierData.colorMultiplier.x >= 1.0 ? 1.0 : 0.0;
-		rIncrement = -rIncrement;
-	}
-	if (cbColorMultiplierData.colorMultiplier.y >= 1.0 || cbColorMultiplierData.colorMultiplier.y <= 0.0)
-	{
-		cbColorMultiplierData.colorMultiplier.y = cbColorMultiplierData.colorMultiplier.y >= 1.0 ? 1.0 : 0.0;
-		gIncrement = -gIncrement;
-	}
-	if (cbColorMultiplierData.colorMultiplier.z >= 1.0 || cbColorMultiplierData.colorMultiplier.z <= 0.0)
-	{
-		cbColorMultiplierData.colorMultiplier.z = cbColorMultiplierData.colorMultiplier.z >= 1.0 ? 1.0 : 0.0;
-		bIncrement = -bIncrement;
-	}
+	// creamos la matriz de traslacion del cubo 1 desde el vector de posicion del cubo 1
+	XMMATRIX translationMat = XMMatrixTranslationFromVector(XMLoadFloat4(&cube1Position));
+
+	// creamos la matriz del mundo del cubo 1 girando primero el cubo, y luego posicionando el cubo girado
+	XMMATRIX worldMat = rotMat * translationMat;
+
+	// almacenamos la matriz del mundo del cubo 1
+	XMStoreFloat4x4(&cube1WorldMat, worldMat);
+
+	// actualizamos el constant buffer para el cubo 1
+	// creamos la matriz wpv y la almacenamos en un constant buffer
+	XMMATRIX viewMat = XMLoadFloat4x4(&cameraViewMat); // cargar la matriz vista
+	XMMATRIX projMat = XMLoadFloat4x4(&cameraProjMat); // cargar la matriz de proyeccion
+	XMMATRIX wvpMat = XMLoadFloat4x4(&cube1WorldMat) * viewMat * projMat; // crear la wvp matrix
+	XMMATRIX transposed = XMMatrixTranspose(wvpMat); // debemos trasponer la matriz wvp para la gpu
+	XMStoreFloat4x4(&cbPerObject.wvpMat, transposed); // almacenamos la matriz wvp trasposeada en el constant buffer
 
 	// copiamos nuestra ConstantBuffer instance al mapped constant buffer resource
-	memcpy(cbColorMultiplierGPUAddress[frameIndex], &cbColorMultiplierData, sizeof(cbColorMultiplierData));
+	memcpy(cbvGPUAddress[frameIndex], &cbPerObject, sizeof(cbPerObject));
+
+	// matriz del mundo para el cubo2
+	// creamos las matrices de rotacion para el cubo 2
+	rotXMat = XMMatrixRotationX(0.0003f);
+	rotYMat = XMMatrixRotationY(0.0002f);
+	rotZMat = XMMatrixRotationZ(0.0001f);
+
+	// añadimos rotacion a la matriz de rotacion del cubo 2 y la almacenamos
+	rotMat = rotZMat * (XMLoadFloat4x4(&cube2RotMat) * (rotXMat * rotYMat));
+	XMStoreFloat4x4(&cube2RotMat, rotMat);
+
+	// creamos la matriz de traslacion del cubo 2 con la distancia al vector de posicion del cubo 1 (posicion relativa al cubo1)
+	XMMATRIX translationOffsetMat = XMMatrixTranslationFromVector(XMLoadFloat4(&cube2PositionOffset));
+
+	// queremos que el cubo 2 sea 1/4 de tamaño del cubo 1, por lo que lo escalamos por 1/4 en todas las dimensiones
+	XMMATRIX scaleMat = XMMatrixScaling(0.25f, 0.25f, 0.25f);
+
+	// reutilizamos worldMat.
+	// primero escalamos el cubo 2. la escala ocurre en relación con el punto 0,0,0, por lo que es mejor escalar primero
+	// y luego trasladarlo.
+	// luego lo rotamos. la rotación siempre gira alrededor del punto 0,0,0
+	// finalmente lo movemos a la posición del cubo 1, lo que hará que gire alrededor del cubo 1 
+	worldMat = scaleMat * translationOffsetMat * rotMat * translationMat;
+
+	wvpMat = XMLoadFloat4x4(&cube2WorldMat) * viewMat * projMat; // crear la wvp matrix
+	transposed = XMMatrixTranspose(wvpMat); // debemos trasponer la matriz wvp para la gpu
+	XMStoreFloat4x4(&cbPerObject.wvpMat, transposed); // almacenamos la matriz wvp trasposeada en el constant buffer
+
+	// copiamos nuestra ConstantBuffer instance al constant buffer resource mapeado
+	memcpy(cbvGPUAddress[frameIndex] + ConstantBufferPerObjectAlignedSize, &cbPerObject, sizeof(cbPerObject));
+
+	// almacenamos la matriz del mundo del cubo 2
+	XMStoreFloat4x4(&cube2WorldMat, worldMat);
 }
 
 void UpdatePipeline()
@@ -809,14 +915,7 @@ void UpdatePipeline()
 	commandList->ClearDepthStencilView(dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	// establecer la root signature
-	commandList->SetGraphicsRootSignature(rootSignature); // set the root signature
-
-	// establecer el constant buffer descriptor heap
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mainDescriptorHeap[frameIndex] };
-	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-
-	// establecer la root descriptor table 0 para el constant buffer descriptor heap
-	commandList->SetGraphicsRootDescriptorTable(0, mainDescriptorHeap[frameIndex]->GetGPUDescriptorHandleForHeapStart());
+	commandList->SetGraphicsRootSignature(rootSignature); // establecer la root signature
 	
 	// dibujar un triangulo
 	commandList->RSSetViewports(1, &viewport); // establecer las viewports
@@ -824,7 +923,24 @@ void UpdatePipeline()
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // establecer la primitive topology
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // establecer el vertex buffer (usando la vertex buffer view)
 	commandList->IASetIndexBuffer(&indexBufferView);
-	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0); // draw del primer cuadrado
+
+	// primer cubo
+
+	// establecer el constant buffer del cubo 1
+	commandList->SetGraphicsRootConstantBufferView(0, constantBufferUploadHeaps[frameIndex]->GetGPUVirtualAddress());
+
+	// dibujar el primer cubo
+	commandList->DrawIndexedInstanced(numCubeIndices, 1, 0, 0, 0);
+
+	// segundo cubo
+
+	// establecer el constant buffer del cubo 2. Añadimos el tamaño del ConstantBufferPerObject al constant buffer
+	// resource heaps address. Esto se debe a que el constant buffer del ubo 1 esta almacenado al principio del resource heap, mientras que
+	// el constant buffer data del cubo 2 esta almacenado despues (256 bits desde el inicio hasta el heap).
+	commandList->SetGraphicsRootConstantBufferView(0, constantBufferUploadHeaps[frameIndex]->GetGPUVirtualAddress() + ConstantBufferPerObjectAlignedSize);
+
+	// dibujar el segundo cubo
+	commandList->DrawIndexedInstanced(numCubeIndices, 1, 0, 0, 0);
 
 	//transicion del "frameIndex" render target desde el render target state al present state. Si debug layer está activada, 
 	//recibiremos un warning si el present es llamado en el render target cuando no esta en el present state
@@ -891,9 +1007,6 @@ void Cleanup()
 		SAFE_RELEASE(renderTargets[i]);
 		SAFE_RELEASE(commandAllocator[i]);
 		SAFE_RELEASE(fence[i]);
-
-		SAFE_RELEASE(mainDescriptorHeap[i]);
-		SAFE_RELEASE(constantBufferUploadHeap[i]);
 	};
 
 	SAFE_RELEASE(pipelineStateObject);
@@ -903,16 +1016,21 @@ void Cleanup()
 
 	SAFE_RELEASE(depthStencilBuffer);
 	SAFE_RELEASE(dsDescriptorHeap);
+
+	for (int i = 0; i < frameBufferCount; ++i)
+	{
+		SAFE_RELEASE(constantBufferUploadHeaps[i]);
+	};
 }
 
 void WaitForPreviousFrame()
 {
 	HRESULT hr;
 
-	// intercambia el índice de búfer rtv actual para que dibujemos en el búfer correcto
+	// intercambia el indice de bufer rtv actual para que dibujemos en el bufer correcto
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
-	//si el valor de la actual fence es todavia menor que el "fence Value", sabemos que la GPU no ha terminado de ejecutar
+	// si el valor de la actual fence es todavia menor que el "fence Value", sabemos que la GPU no ha terminado de ejecutar
 	// la command queue, ya que no ha alcanzado el comando "commandQueue->Signal(fence, fenceValue)"
 	if (fence[frameIndex]->GetCompletedValue() < fenceValue[frameIndex])
 	{
@@ -924,7 +1042,7 @@ void WaitForPreviousFrame()
 		}
 
 		// Tenemos que esperar hasta que la fence haya "triggeado" el evento en el que su valor haya alzanzado el "fenceValue"
-		//De esta forma sabremos que la command queue ha terminado de ejecutar
+		// De esta forma sabremos que la command queue ha terminado de ejecutar
 		WaitForSingleObject(fenceEvent, INFINITE);
 	}
 

@@ -1,2 +1,9 @@
-﻿  compilation object save succeeded; see C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Release\VertexShader.cso
-  ManuelHP_ProyectoDX12_POV.vcxproj -> C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Release\ManuelHP_ProyectoDX12_POV.exe
+﻿  main.cpp
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(750,19): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(751,20): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(826,49): error C2664: 'void DirectX::XMStoreFloat4x4(DirectX::XMFLOAT4X4 *,DirectX::FXMMATRIX)': el argumento 1 no puede convertirse de 'DirectX::XMFLOAT4 *' a 'DirectX::XMFLOAT4X4 *'
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(826,18): message : Los tipos señalados no están relacionados; la conversión requiere reinterpret_cast, conversión de estilo de C o conversión de estilo de función
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um\DirectXMathConvert.inl(2091,25): message : vea la declaración de 'DirectX::XMStoreFloat4x4'
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(856,49): error C2664: 'void DirectX::XMStoreFloat4x4(DirectX::XMFLOAT4X4 *,DirectX::FXMMATRIX)': el argumento 1 no puede convertirse de 'DirectX::XMFLOAT4 *' a 'DirectX::XMFLOAT4X4 *'
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(856,18): message : Los tipos señalados no están relacionados; la conversión requiere reinterpret_cast, conversión de estilo de C o conversión de estilo de función
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um\DirectXMathConvert.inl(2091,25): message : vea la declaración de 'DirectX::XMStoreFloat4x4'
