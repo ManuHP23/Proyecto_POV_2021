@@ -1,4 +1,5 @@
 ﻿  main.cpp
-C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(750,19): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
-C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(751,20): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(918,19): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(919,20): warning C4244: '=': conversión de 'int' a 'FLOAT'; posible pérdida de datos
+C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\ManuelHP_ProyectoDX12_POV\main.cpp(1318): warning C4715: 'GetDXGIFormatBitsPerPixel': no todas las rutas de acceso de control devuelven un valor
   ManuelHP_ProyectoDX12_POV.vcxproj -> C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Debug\ManuelHP_ProyectoDX12_POV.exe

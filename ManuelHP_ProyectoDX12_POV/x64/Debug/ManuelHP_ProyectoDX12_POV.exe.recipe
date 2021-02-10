@@ -5,7 +5,14 @@
       <FullPath>C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Debug\ManuelHP_ProyectoDX12_POV.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
-  <ContentFiles />
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Debug\PixelShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\Usuario\source\repos\ManuelHP_ProyectoDX12_POV\x64\Debug\VertexShader.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
   <SatelliteDlls />
   <NonRecipeFileRefs />
 </Project>

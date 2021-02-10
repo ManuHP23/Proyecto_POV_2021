@@ -11,6 +11,7 @@
 #include <DirectXMath.h>
 #include "d3dx12.h"
 #include <string>
+#include <wincodec.h>
 
 // solo llamara release si exite un objeto (previene la llamada al release de objetos no existentes)
 #define SAFE_RELEASE(p) { if ( (p) ) { (p)->Release(); (p) = 0; } }
@@ -143,4 +144,17 @@ XMFLOAT4 cube1Position; // posicion del cubo 1 en el espacio
 XMFLOAT4X4 cube2WorldMat; // la world matrix para el cubo 2 (transformation matrix)
 XMFLOAT4X4 cube2RotMat; // esto hara un seguimiento de la rotacion para el cubo 2
 XMFLOAT4 cube2PositionOffset; // el cubo 2 girara alrededor del cubo 1, esta es la position offset al cubo1
+
 int numCubeIndices; // numero de indices para dibujar el cubo
+
+ID3D12Resource* textureBuffer; // el resource heap que contiene nuestra textura
+ID3D12Resource* textureBuffer1; //  el resource heap que contiene nuestra textura
+
+int LoadImageDataFromFile(BYTE** imageData, D3D12_RESOURCE_DESC& resourceDescription, LPCWSTR filename, int& bytesPerRow);
+
+DXGI_FORMAT GetDXGIFormatFromWICFormat(WICPixelFormatGUID& wicFormatGUID);
+WICPixelFormatGUID GetConvertToWICFormat(WICPixelFormatGUID& wicFormatGUID);
+int GetDXGIFormatBitsPerPixel(DXGI_FORMAT& dxgiFormat);
+
+ID3D12DescriptorHeap* mainDescriptorHeap;
+ID3D12Resource* textureBufferUploadHeap;
